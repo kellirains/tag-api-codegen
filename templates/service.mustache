@@ -56,7 +56,7 @@ export function {{FUNCTION_NAME}}(
 	payload: {{^FUNCTION_PAYLOAD}}undefined{{/FUNCTION_PAYLOAD}}{{#FUNCTION_PAYLOAD}}{{{.}}}{{/FUNCTION_PAYLOAD}},
 	headers: RawAxiosRequestHeaders,
 	cancelToken?: CancelToken,
-	queryParameters?: {{#QUERY_PARAMS}}{{FUNCTION_NAME}}QueryParams{{/QUERY_PARAMS}} | undefined,
+	queryParameters?: {{#QUERY_PARAMS}}{{FUNCTION_NAME}}QueryParams | {{/QUERY_PARAMS}}undefined,
 	basePathOverride?: string
 ): Promise<AxiosResponse<{{{FUNCTION_RESPONSE}}}>> {
 	return axios.request<{{{FUNCTION_RESPONSE}}}>({

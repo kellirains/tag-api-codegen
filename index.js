@@ -127,7 +127,7 @@ exports.generate = async (inputFile, outputDirectory, isApiMonolith, userProvide
 						FUNCTION_NAME:
 							pathConfig.operationId ||
 							generateOperationId(pathConfig.method, pathConfig.path),
-						FUNCTION_PARAMS: pathConfig.parameters && {
+						FUNCTION_PARAMS: pathParams && pathParams.length > 0 && {
 							FUNCTION_PARAM_CONFIGS: _.map(pathParams, (parameter) => {
 								return {
 									FUNCTION_PARAM: parameter.name,
