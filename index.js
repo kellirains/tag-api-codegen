@@ -107,12 +107,20 @@ exports.generate = async (inputFile, outputDirectory, isApiMonolith, userProvide
 				TYPES_DIRECTORY: isApiMonolith ? "../apiModelTypes" : "./apiModelTypes",
 				BASE_PATH: serviceFileBasePath,
 				FUNCTIONS: _.map(paths, (pathConfig) => {
+					
 					const pathParams = _.filter(pathConfig.parameters, (parameter) => {
 						return _.toLower(parameter.in) === "path";
 					});
 					const queryParams = _.filter(pathConfig.parameters, (parameter) => {
 						return _.toLower(parameter.in) === "query";
 					});
+
+						console.log(pathConfig.parameters);
+						console.log("path params");
+						console.log(pathParams);
+						console.log("query params");
+						console.log(queryParams);
+					
 
 					return {
 						FUNCTION_SUMMARY: pathConfig.summary,
@@ -128,7 +136,7 @@ exports.generate = async (inputFile, outputDirectory, isApiMonolith, userProvide
 								};
 							})
 						},
-						QUERY_PARAMS: queryParams && {
+						QUERY_PARAMS: queryParams && queryParams.length > 0 ? {
 							QUERY_PARAM_CONFIGS: _.map(queryParams, (parameter) => {
 								return {
 									QUERY_PARAM: parameter.name,
@@ -136,7 +144,7 @@ exports.generate = async (inputFile, outputDirectory, isApiMonolith, userProvide
 									QUERY_PARAM_REQUIRED: parameter.required
 								};
 							})
-						},
+						} : undefined,
 						FUNCTION_PAYLOAD:
 							pathConfig.requestBody && getHttpBodyType(pathConfig.requestBody),
 						FUNCTION_RESPONSE: getHttpBodyType(pathConfig.responses["200"]),
@@ -375,7 +383,9 @@ function getHttpBodyType(body) {
  * @returns the name of the schema.
  */
 function getSchemaName(ref) {
-	return pascalCase(_(ref).split("/").last());
+	// console.log(schema);
+	// console.log(pascalCase(_(ref).split("/").last()));
+	return (_(ref).split("/").last());
 }
 
 /**
@@ -404,6 +414,7 @@ function unifyModel(allSchemas, schemas) {
 	 */
 	const getSchema = (schemaRef) => {
 		const externalSchema = allSchemas[getSchemaName(schemaRef)];
+		// if (!externalSchema) console.log(schemaRef);
 		if (externalSchema.$ref) {
 			return getSchema(externalSchema.$ref);
 		} else {
@@ -455,7 +466,6 @@ function unifyModel(allSchemas, schemas) {
  */
 function translateDataType(schema, isForeignReference = false) {
 	let propertyType;
-
 	if (!schema.type && schema.$ref) {
 		propertyType = _.join(
 			[isForeignReference ? "ApiModelTypes." : undefined, getSchemaName(schema.$ref)],
@@ -507,9 +517,15 @@ function translateDataType(schema, isForeignReference = false) {
  * @returns a field type for a field config.
  */
 function translateFieldType(schemas, schema) {
+	// if (!schema) console.log(schema)
 	let fieldType;
 
 	if (!schema.type && schema.$ref) {
+		
+		if (!schemas[getSchemaName(schema.$ref)]) {
+			// console.log("in if");
+			// console.log(schema)
+		}
 		const externalSchema = schemas[getSchemaName(schema.$ref)];
 		fieldType = translateFieldType(schemas, externalSchema);
 	} else if (schema.enum) {
