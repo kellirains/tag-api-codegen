@@ -161,11 +161,24 @@ exports.generate = async (inputFile, outputDirectory, isApiMonolith, userProvide
 		});
 	});
 
+	const allSchemas = openApiFile.components.schemas;
+	console.log('all schemas');
+		console.log(allSchemas);
+	const transformedSchemas = {};
+	 
+	// Transforming schema keys to pascal case in case the source api file isn't
+	// Example: if source api file defines AWSResponse pascal case is AwsResponse, throws error
+	for (schema in allSchemas) {
+		transformedSchemas[pascalCase(schema)] = allSchemas[schema];
+	}
+
+	console.log("transformed schemas");
+	console.log(transformedSchemas);
+
 	// Generate all types for models.
 	fs.readFile("./templates/apiModelTypes.mustache", (error, data) => {
-		const allSchemas = openApiFile.components.schemas;
-
-		const models = _(allSchemas)
+		const transformedSchemas = openApiFile.components.schemas;
+		const models = _(transformedSchemas)
 			.pickBy((schema) => {
 				return !schema.enum;
 			})
@@ -174,7 +187,7 @@ exports.generate = async (inputFile, outputDirectory, isApiMonolith, userProvide
 			})
 			.map((schema, schemaName) => {
 				if (schema.allOf) {
-					schema = unifyModel(allSchemas, schema.allOf);
+					schema = unifyModel(transformedSchemas, schema.allOf);
 				}
 				return {
 					MODEL_NAME: pascalCase(schemaName),
@@ -192,7 +205,7 @@ exports.generate = async (inputFile, outputDirectory, isApiMonolith, userProvide
 			})
 			.value();
 
-		const enums = _(allSchemas)
+		const enums = _(transformedSchemas)
 			.pickBy((schema) => {
 				return !!schema.enum;
 			})
@@ -210,7 +223,7 @@ exports.generate = async (inputFile, outputDirectory, isApiMonolith, userProvide
 			})
 			.value();
 
-		const types = _(allSchemas)
+		const types = _(transformedSchemas)
 			.pickBy((schema) => {
 				return schema.oneOf;
 			})
@@ -248,8 +261,8 @@ exports.generate = async (inputFile, outputDirectory, isApiMonolith, userProvide
 
 	// Generate all runtime models from schema.
 	fs.readFile("./templates/apiModels.mustache", (error, data) => {
-		const allSchemas = openApiFile.components.schemas;
-		const models = _(allSchemas)
+		
+		const models = _(transformedSchemas)
 			.pickBy((schema) => {
 				return !schema.enum;
 			})
@@ -258,7 +271,7 @@ exports.generate = async (inputFile, outputDirectory, isApiMonolith, userProvide
 			})
 			.map((schema, schemaName) => {
 				if (schema.allOf) {
-					schema = unifyModel(allSchemas, schema.allOf);
+					schema = unifyModel(transformedSchemas, schema.allOf);
 				}
 				return {
 					MODEL_NAME: pascalCase(schemaName),
@@ -266,8 +279,8 @@ exports.generate = async (inputFile, outputDirectory, isApiMonolith, userProvide
 					MODEL_PROPERTIES: _.map(schema.properties, (property, propertyName) => {
 						return {
 							PROPERTY_NAME: propertyName,
-							PROPERTY_TYPE: translateFieldType(allSchemas, property),
-							PROPERTY_OPTIONS: getEnumEntries(allSchemas, property),
+							PROPERTY_TYPE: translateFieldType(transformedSchemas, property),
+							PROPERTY_OPTIONS: getEnumEntries(transformedSchemas, property),
 							PROPERTY_DESCRIPTION: property.description,
 							PROPERTY_REQUIRED: _.includes(schema.required, propertyName),
 							PROPERTY_UNITS: property["x-ada-units"],
@@ -375,6 +388,8 @@ function getHttpBodyType(body) {
  * @returns the name of the schema.
  */
 function getSchemaName(ref) {
+	console.log("get schema name", ref);
+	console.log(pascalCase(_(ref).split("/").last()))
 	return pascalCase(_(ref).split("/").last());
 }
 
@@ -508,9 +523,11 @@ function translateDataType(schema, isForeignReference = false) {
  */
 function translateFieldType(schemas, schema) {
 	let fieldType;
-
+	// console.log("schema", schema);
 	if (!schema.type && schema.$ref) {
+		console.log(schema);
 		const externalSchema = schemas[getSchemaName(schema.$ref)];
+		console.log("external schema", externalSchema);
 		fieldType = translateFieldType(schemas, externalSchema);
 	} else if (schema.enum) {
 		fieldType = "ENUM";
