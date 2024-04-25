@@ -30,11 +30,7 @@ const pascalCase = (string) => {
  * @param {boolean} isApiMonolith - flag indicating whether to treat this api as monolithic.
  * @param {string} userProvidedServiceName - Optional service name for api file.
  */
-exports.generate = async (inputFile, outputDirectory, isApiMonolith, userProvidedServiceName, axiosVersion = 0) => {
-	// Axios header typings change at version 1.0. See https://github.com/axios/axios/blob/v1.x/CHANGELOG.md#100---2022-10-04
-	const useNewAxiosHeaderTypes = axiosVersion >= 1;
-	console.log("using axios version", axiosVersion);
-	console.log('use new axios?', useNewAxiosHeaderTypes);
+exports.generate = async (inputFile, outputDirectory, isApiMonolith, userProvidedServiceName) => {
 	const serviceDirectoryName =
 		userProvidedServiceName && `${_.toLower(userProvidedServiceName)}Service`;
 
@@ -147,8 +143,7 @@ exports.generate = async (inputFile, outputDirectory, isApiMonolith, userProvide
 						REQUEST_METHOD: pathConfig.method,
 						REQUEST_PATH: transformApiPath(pathConfig.path, pathConfig.parameters)
 					};
-				}),
-				USE_NEW_AXIOS_TYPES: useNewAxiosHeaderTypes 
+				})
 			};
 
 			if (!fs.existsSync(serviceDirectory)) {
@@ -327,10 +322,10 @@ function getEnumEntries(schemas, schema) {
 		return enumItemsObject;
 	} else if (schema.type === "array") {
 		if (schema.items.$ref) {
-			return getEnumEntries(schemas, schemas[getSchemaName(schema.items.$ref)]);
+			return getEnumEntries(schemas, getSchemaFromRef(schema.items.$ref, schemas));
 		}
 	} else if (schema.$ref) {
-		return getEnumEntries(schemas, schemas[getSchemaName(schema.$ref)]);
+		return getEnumEntries(schemas, getSchemaFromRef(schema.$ref, schemas));
 	} else {
 		return undefined;
 	}
@@ -379,8 +374,33 @@ function getHttpBodyType(body) {
  * @param {string} ref - the open api yaml $ref string.
  * @returns the name of the schema.
  */
-function getSchemaName(ref) {
-	return pascalCase(_(ref).split("/").last());
+function getSchemaName(ref, transformCase = true) {
+	const schemaName = _(ref).split("/").last();
+	return transformCase ? pascalCase(schemaName) : schemaName;
+}
+
+/**
+ * Wrapper for getting schemas. Attempts to retrieve first by transforming to pascal case
+ * If can't be find looks for uppercase, then without transforming case
+ * If the API isn't capitalized as expected, transforming to pascal case will throw an error
+ * @param ref the open api yaml $ref
+ * @param schemas the schemas object
+ * @returns the schema object
+ */
+function getSchemaFromRef(ref, schemas) {
+	console.log("getSchemaFromRef");
+	console.log(ref);
+	const pascalCaseSchema = schemas[getSchemaName(ref)];
+	const upperCaseSchema = schemas[_.upperFirst(getSchemaName(ref, false))];
+	const nonTransformedSchema = schemas[getSchemaName(ref, false)];
+	if (!pascalCaseSchema && !upperCaseSchema && !nonTransformedSchema) {
+		throw new Error("Cant find schema", getSchemaName(ref, false));
+	}
+	console.log("pascal case", pascalCaseSchema);
+	console.log("upper case", upperCaseSchema);
+	console.log("non transformed", nonTransformedSchema);
+	return pascalCaseSchema ?? upperCaseSchema ?? nonTransformedSchema;
+
 }
 
 /**
@@ -408,7 +428,7 @@ function unifyModel(allSchemas, schemas) {
 	 * @returns the schema object.
 	 */
 	const getSchema = (schemaRef) => {
-		const externalSchema = allSchemas[getSchemaName(schemaRef)];
+		const externalSchema = getSchemaFromRef(schemaRef, allSchemas);
 		if (externalSchema.$ref) {
 			return getSchema(externalSchema.$ref);
 		} else {
@@ -515,7 +535,7 @@ function translateFieldType(schemas, schema) {
 	let fieldType;
 
 	if (!schema.type && schema.$ref) {
-		const externalSchema = schemas[getSchemaName(schema.$ref)];
+		const externalSchema = getSchemaFromRef(schema.$ref, schemas);
 		fieldType = translateFieldType(schemas, externalSchema);
 	} else if (schema.enum) {
 		fieldType = "ENUM";
