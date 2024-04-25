@@ -30,7 +30,11 @@ const pascalCase = (string) => {
  * @param {boolean} isApiMonolith - flag indicating whether to treat this api as monolithic.
  * @param {string} userProvidedServiceName - Optional service name for api file.
  */
-exports.generate = async (inputFile, outputDirectory, isApiMonolith, userProvidedServiceName) => {
+exports.generate = async (inputFile, outputDirectory, isApiMonolith, userProvidedServiceName, axiosVersion = 0) => {
+	// Axios header typings change at version 1.0. See https://github.com/axios/axios/blob/v1.x/CHANGELOG.md#100---2022-10-04
+	const useNewAxiosHeaderTypes = axiosVersion >= 1;
+	console.log("using axios version", axiosVersion);
+	console.log('use new axios?', useNewAxiosHeaderTypes);
 	const serviceDirectoryName =
 		userProvidedServiceName && `${_.toLower(userProvidedServiceName)}Service`;
 
@@ -143,7 +147,8 @@ exports.generate = async (inputFile, outputDirectory, isApiMonolith, userProvide
 						REQUEST_METHOD: pathConfig.method,
 						REQUEST_PATH: transformApiPath(pathConfig.path, pathConfig.parameters)
 					};
-				})
+				}),
+				USE_NEW_AXIOS_TYPES: useNewAxiosHeaderTypes 
 			};
 
 			if (!fs.existsSync(serviceDirectory)) {
