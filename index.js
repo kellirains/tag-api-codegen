@@ -20,7 +20,8 @@ const BAD_YAML_MESSAGE =
  * @returns a string in PascalCase
  */
 const pascalCase = (string) => {
-	return _.upperFirst(_.camelCase(string));
+	return _.upperFirst(string);
+	// return _.upperFirst(_.camelCase(string));
 };
 
 /**
